@@ -1,6 +1,10 @@
 
+extern crate clap;
+
 use std::io::*;
 use std::net::IpAddr;
+use std::fs::OpenOptions;
+use clap::{App, Arg};
 
 #[derive(Debug)]
 struct Profile {
@@ -91,14 +95,37 @@ impl Profile {
 }
 
 fn main() {
-    let mut profile = Profile::new();
 
-    let pub_dns = b"8.8.8.8\n8.8.4.5\n";
+    let matches = App::new("dnsmasq-profile-generater")
+        .author("sbw <sbw@sbw.so>")
+        .version("0.0.1")
+        .about("dnsmasq profile generater")
+        .arg(Arg::with_name("output")
+            .short("o")
+            .takes_value(true)
+            .help("specificed output result file")
+            .default_value("/etc/dnsmasq.conf"))
+        .get_matches();
+
+    let output = matches.value_of("output").unwrap();
+
+    let pub_dns = b"8.8.8.8\n8.8.4.4\n";
     let spec_dns = b"114.114.114.114\n115.115.115.115\n";
     let spec_hosts = b"bilibili.com\nqq.com\n";
 
+    let config_file = match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(output) {
+        Ok(file) => file,
+        Err(e) => panic!("Unable to open {}, {}", output, e),
+    };
+
+    let mut profile = Profile::new();
     profile.read_pub_dns_list(&pub_dns[..]);
     profile.read_spec_dns_list(&spec_dns[..]);
     profile.read_spec_host_list(&spec_hosts[..]);
-    profile.write(stdout()).unwrap();
+    profile.write(config_file).unwrap();
 }
